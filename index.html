@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slash Guitar</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 15px 8px;
+  background: #101018;
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+
+h1 {
+  color: #a995ff;
+  margin-bottom: 5px;
+}
+
+p {
+  color: #ccc;
+}
+
+#stats {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 15px 0;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+#start {
+  background: #a995ff;
+  color: #15121f;
+  padding: 13px 25px;
+  font-size: 17px;
+}
+
+#game {
+  width: 96%;
+  max-width: 500px;
+  height: 55vh;
+  min-height: 350px;
+  max-height: 570px;
+  margin: 15px auto;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  position: relative;
+  overflow: hidden;
+  background: #1b1b2a;
+  border: 2px solid #554879;
+  border-radius: 12px;
+}
+
+.lane {
+  position: relative;
+  border-right: 1px solid #39334c;
+}
+
+.lane:last-child {
+  border-right: 0;
+}
+
+.hitline {
+  position: absolute;
+  top: 82%;
+  width: 100%;
+  height: 4px;
+  background: white;
+  box-shadow: 0 0 12px white;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.note {
+  position: absolute;
+  width: 70%;
+  height: 18px;
+  left: 15%;
+  border-radius: 7px;
+  box-shadow: 0 0 12px currentColor;
+}
+
+#controls {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+  max-width: 500px;
+  margin: 12px auto;
+}
+
+.key {
+  flex: 1;
+  padding: 18px 0;
+  background: #6654b8;
+  color: white;
+  font-size: 20px;
+  touch-action: manipulation;
+}
+
+.key:active {
+  background: #a995ff;
+}
+
+.small {
+  font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎸 SLASH GUITAR</h1>
+<p>Acerte as notas quando chegarem à linha!</p>
+
+<div id="stats">
+  <span>Pontos: <b id="score">0</b></span>
+  <span>Combo: <b id="combo">0</b></span>
+  <span>Erros: <b id="miss">0</b></span>
+</div>
+
+<button id="start">COMEÇAR A JOGAR</button>
+
+<div id="game">
+  <div class="lane"></div>
+  <div class="lane"></div>
+  <div class="lane"></div>
+  <div class="lane"></div>
+  <div class="lane"></div>
+  <div class="hitline"></div>
+</div>
+
+<div id="controls">
+  <button class="key" data-k="0">A</button>
+  <button class="key" data-k="1">S</button>
+  <button class="key" data-k="2">D</button>
+  <button class="key" data-k="3">F</button>
+  <button class="key" data-k="4">G</button>
+</div>
+
+<p class="small">
+  Celular: toque nos botões.<br>
+  Computador: use A, S, D, F e G.
+</p>
+
+<script>
+const game = document.getElementById("game");
+const lanes = [...document.querySelectorAll(".lane")];
+
+const scoreEl = document.getElementById("score");
+const comboEl = document.getElementById("combo");
+const missEl = document.getElementById("miss");
+const startBtn = document.getElementById("start");
+
+const colors = [
+  "#ff5577",
+  "#ffc857",
+  "#54e6a5",
+  "#55baff",
+  "#c69bff"
+];
+
+let notes = [];
+let running = false;
+let score = 0;
+let combo = 0;
+let misses = 0;
+let lastTime = 0;
+let spawnTime = 0;
+let animation = 0;
+
+function resetGame() {
+  notes.forEach(note => note.el.remove());
+  notes = [];
+
+  score = 0;
+  combo = 0;
+  misses = 0;
+
+  scoreEl.textContent = "0";
+  comboEl.textContent = "0";
+  missEl.textContent = "0";
+}
+
+function spawnNote() {
+  const laneIndex = Math.floor(Math.random() * 5);
+  const el = document.createElement("div");
+
+  el.className = "note";
+  el.style.background = colors[laneIndex];
+  el.style.color = colors[laneIndex];
+
+  lanes[laneIndex].appendChild(el);
+
+  notes.push({
+    lane: laneIndex,
+    y: -25,
+    el: el,
+    done: false
+  });
+}
+
+function gameLoop(time) {
+  if (!running) return;
+
+  const dt = Math.min(40, time - (lastTime || time));
+  lastTime = time;
+
+  spawnTime += dt;
+
+  if (spawnTime > 650) {
+    spawnTime = 0;
+    spawnNote();
+  }
+
+  const height = game.clientHeight;
+
+  notes.forEach(note => {
+    note.y += 260 * dt / 1000;
+    note.el.style.top = note.y + "px";
+
+    if (note.y > height * 0.90 && !note.done) {
+      note.done = true;
+      note.el.remove();
+
+      misses++;
+      combo = 0;
+
+      missEl.textContent = misses;
+      comboEl.textContent = combo;
+    }
+  });
+
+  notes = notes.filter(note => !note.done);
+
+  animation = requestAnimationFrame(gameLoop);
+}
+
+function hit(laneIndex) {
+  if (!running) return;
+
+  const target = game.clientHeight * 0.82;
+
+  const candidates = notes
+    .filter(note => note.lane === laneIndex && !note.done)
+    .sort((a, b) =>
+      Math.abs(a.y - target) - Math.abs(b.y - target)
+    );
+
+  const note = candidates[0];
+
+  if (note && Math.abs(note.y - target) < 70) {
+    note.done = true;
+    note.el.remove();
+
+    score += Math.abs(note.y - target) < 30 ? 100 : 50;
+    combo++;
+
+    scoreEl.textContent = score;
+    comboEl.textContent = combo;
+  } else {
+    combo = 0;
+    comboEl.textContent = combo;
+  }
+}
+
+startBtn.addEventListener("click", () => {
+  cancelAnimationFrame(animation);
+  resetGame();
+
+  running = true;
+  lastTime = 0;
+  spawnTime = 0;
+
+  startBtn.textContent = "RECOMEÇAR";
+  animation = requestAnimationFrame(gameLoop);
+});
+
+document.querySelectorAll(".key").forEach(button => {
+  button.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    hit(Number(button.dataset.k));
+  });
+});
+
+document.addEventListener("keydown", event => {
+  const index = "asdfg".indexOf(event.key.toLowerCase());
+
+  if (index !== -1) {
+    hit(index);
+  }
+});
+</script>
+
+</body>
+</html>
